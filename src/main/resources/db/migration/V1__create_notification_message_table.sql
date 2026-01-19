@@ -1,0 +1,7 @@
+CREATE TABLE notification_message(
+    id SERIAL PRIMARY KEY,
+    student_id BIGINT NOT NULL,
+    message VARCHAR(255) NOT NULL,
+    sent BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Student Notification</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f9fafb;
+            padding: 20px;
+        }
+        h2, h3 { color: #333; }
+        #notifs {
+            background: #fff;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        p {
+            background: #f1f5f9;
+            border-radius: 5px;
+            padding: 8px;
+            margin: 5px 0;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px;
+        }
+        button {
+            background: #16a34a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #15803d;
+        }
+    </style>
+</head>
+<body>
+<h2>📩 Notifications for Student</h2>
+<div id="notifs"></div>
+
+<h3>Send Custom Acknowledgment</h3>
+<input id="ackMsg" placeholder="Type your acknowledgment..." />
+<button id="sendAck">Send</button>
+
+<script>
+    const studentId = prompt("Enter your student ID to subscribe:");
+    const socket = new SockJS('http://localhost:8081/ws');
+    const stompClient = Stomp.over(socket);
+
+    stompClient.connect({}, (frame) => {
+        console.log("✅ Connected as Student:", frame);
+
+        // Subscribe to this student's notification topic
+        stompClient.subscribe(`/topic/notifications/${studentId}`, (message) => {
+            const notif = JSON.parse(message.body);
+            displayNotification(notif.message, notif.createdAt);
+
+            // ✅ Auto-send acknowledgment back to admin
+            const ackMessage = `Received message: "${notif.message}"`;
+            sendAck(ackMessage);
+        });
+
+        // Manual acknowledgment via button
+        document.getElementById('sendAck').addEventListener('click', () => {
+            const msg = document.getElementById('ackMsg').value.trim();
+            if (msg) {
+                sendAck(msg);
+                document.getElementById('ackMsg').value = "";
+            }
+        });
+    });
+
+    // Helper to display notifications
+    function displayNotification(message, timestamp) {
+        const div = document.getElementById('notifs');
+        const p = document.createElement('p');
+        p.textContent = `[${timestamp}] ${message}`;
+        div.prepend(p);
+    }
+
+    // Helper to send acknowledgment to admin via WebSocket
+    function sendAck(message) {
+        stompClient.send("/app/ack", {}, JSON.stringify({
+            studentId: studentId,
+            message: message
+        }));
+        console.log("📤 Sent acknowledgment:", message);
+    }
+</script>
+</body>
+</html>

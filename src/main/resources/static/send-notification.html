@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Notification Panel</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f9fafb;
+    }
+    h2 {
+      color: #333;
+    }
+    #send-section {
+      margin-bottom: 30px;
+      background: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    button:hover {
+      background: #1e40af;
+    }
+    #acks {
+      background: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .ack {
+      border-bottom: 1px solid #eee;
+      padding: 8px;
+    }
+    .ack:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+<h2>📢 Admin Notification & Acknowledgment Panel</h2>
+
+
+<!-- Sending Section -->
+<div id="send-section" style="display: flex; gap: 40px;">
+  <!-- In-App Notification Column -->
+  <div style="flex:1;">
+    <h3>Send In-App Notification</h3>
+    <input type="text" id="studentId" placeholder="Student ID" />
+    <input type="text" id="message" placeholder="Message (e.g., Marks Uploaded)" />
+    <button onclick="sendNotification()">Send Notification</button>
+    <p id="response"></p>
+  </div>
+  <!-- Email Notification Column -->
+  <div style="flex:1;">
+    <h3>Send Email Notification</h3>
+    <input type="email" id="email" placeholder="Recipient Email" />
+    <input type="text" id="emailMessage" placeholder="Email Message" />
+    <button onclick="sendEmailNotification()">Send Email</button>
+    <p id="emailResponse"></p>
+  </div>
+</div>
+
+<!-- Acknowledgment Section -->
+<h3>📨 Acknowledgments from Students</h3>
+<div id="acks"></div>
+
+<script>
+  const socket = new SockJS('http://localhost:8081/ws');
+  const stompClient = Stomp.over(socket);
+
+  stompClient.connect({}, (frame) => {
+    console.log("✅ Connected as Admin:", frame);
+
+    // Subscribe to student acknowledgments
+    stompClient.subscribe("/topic/admin/acks", (message) => {
+      const ack = JSON.parse(message.body);
+      displayAck(ack.studentId, ack.message);
+    });
+  });
+
+
+  async function sendNotification() {
+    const studentId = document.getElementById('studentId').value.trim();
+    const message = document.getElementById('message').value.trim();
+    const responseTag = document.getElementById('response');
+
+    if (!studentId || !message) {
+      responseTag.textContent = "⚠️ Please enter both student ID and message.";
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:8081/api/inapp/send?studentId=${studentId}&message=${encodeURIComponent(message)}`, {
+        method: 'POST'
+      });
+      const text = await res.text();
+      responseTag.textContent = text;
+    } catch (err) {
+      console.error(err);
+      responseTag.textContent = "❌ Error sending notification.";
+    }
+  }
+
+  async function sendEmailNotification() {
+    const email = document.getElementById('email').value.trim();
+    const message = document.getElementById('emailMessage').value.trim();
+    const responseTag = document.getElementById('emailResponse');
+
+    if (!email || !message) {
+      responseTag.textContent = "⚠️ Please enter both email and message.";
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:8081/notify/email?email=${encodeURIComponent(email)}&message=${encodeURIComponent(message)}`, {
+        method: 'POST'
+      });
+      const text = await res.text();
+      responseTag.textContent = text;
+    } catch (err) {
+      console.error(err);
+      responseTag.textContent = "❌ Error sending email notification.";
+    }
+  }
+
+  function displayAck(studentId, message) {
+    const div = document.getElementById('acks');
+    const p = document.createElement('div');
+    p.classList.add('ack');
+    p.innerHTML = `<strong>Student ${studentId}</strong> → ${message}`;
+    div.prepend(p);
+  }
+</script>
+</body>
+</html>
