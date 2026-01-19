@@ -2,6 +2,8 @@
 
 A real-time notification system built with **Spring Boot**, **Apache Kafka**, **PostgreSQL**, and **WebSockets** that supports both in-app and email notifications with real-time acknowledgments.
 
+**Quick Summary**: Event-driven notification system using Apache Kafka for asynchronous message processing, WebSockets for real-time delivery, and PostgreSQL for persistence. Demonstrates microservices patterns, producer-consumer architecture, and resilient messaging with retry mechanisms.
+
 ---
 
 ## 📋 Table of Contents
@@ -23,6 +25,19 @@ A real-time notification system built with **Spring Boot**, **Apache Kafka**, **
 - [Future Enhancements](#future-enhancements)
 - [Troubleshooting](#troubleshooting)
 - [Project Structure](#project-structure)
+
+---
+
+## 💡 What You'll Learn
+
+This project demonstrates:
+- **Event-Driven Architecture**: Async messaging with Kafka
+- **Real-Time Communication**: WebSocket implementation with STOMP
+- **Resilient Systems**: Retry logic, error handling, DLQ patterns
+- **Microservices Patterns**: Producer-Consumer, Event Sourcing
+- **Database Design**: PostgreSQL with Spring Data JPA
+- **DevOps**: Docker Compose orchestration, containerization
+- **Full-Stack Integration**: Backend APIs + Frontend real-time UI
 
 ---
 
@@ -254,52 +269,16 @@ git clone <repository-url>
 cd ApacheKafka
 ```
 
-### 2. Configure Environment Variables
-Create a `.env` file in the project root (copy from `.env.example`):
-```bash
-cp .env.example .env
-```
+> **Note**: Configuration files (`docker-compose.yml`, `application.properties`) are pre-configured. Update credentials if needed.
 
-Edit `.env` with your configuration:
-```properties
-# Database Configuration
-DB_USER=kesav
-DB_PASSWORD=kesav
-DB_NAME=appdb
-DB_PORT=5432
-
-# pgAdmin Configuration
-PGADMIN_EMAIL=pgadmin4@pgadmin.org
-PGADMIN_PASSWORD=admin
-PGADMIN_PORT=5050
-
-# Email Configuration (Optional)
-SPRING_MAIL_USERNAME=your-email@gmail.com
-SPRING_MAIL_PASSWORD=your-app-password
-```
-
-### 3. Configure Email Settings (Optional)
-If you want to send actual emails, update the email variables in `.env`:
-```properties
-SPRING_MAIL_USERNAME=your-email@gmail.com
-SPRING_MAIL_PASSWORD=your-app-password
-```
-
-**Note**: For Gmail, you need to create an [App Password](https://support.google.com/accounts/answer/185833).
-
-### 4. Start Docker Containers
+### 2. Start Docker Containers
 ```bash
 docker-compose up -d
 ```
 
-This will start:
-- ZooKeeper (port 2181)
-- Kafka (port 9092)
-- PostgreSQL (port configured in .env)
-- pgAdmin (port configured in .env)
-- Kafka UI (port 8080)
+This will start: ZooKeeper (2181), Kafka (9092), PostgreSQL (5432), pgAdmin (5050), and Kafka UI (8080).
 
-### 5. Verify Containers are Running
+### 3. Verify Containers are Running
 ```bash
 docker ps
 ```
@@ -310,24 +289,15 @@ You should see 5 containers running: `zookeeper`, `kafka`, `postgres_container`,
 
 ## ▶️ Running the Application
 
-### Using Maven Wrapper (Recommended)
-
-#### Windows
-```cmd
-.\mvnw.cmd clean spring-boot:run
-```
-
-#### Linux/Mac
 ```bash
-./mvnw clean spring-boot:run
+# Windows
+.\mvnw.cmd spring-boot:run
+
+# Linux/Mac
+./mvnw spring-boot:run
 ```
 
-### Using Installed Maven
-```bash
-mvn clean spring-boot:run
-```
-
-The application will start on **http://localhost:8081**
+Application runs on **http://localhost:8081**
 
 ---
 
@@ -350,96 +320,29 @@ The application will start on **http://localhost:8081**
    - Check consumer groups
 
 4. **pgAdmin**: http://localhost:5050
-   - Database management UI (credentials configured in docker-compose.yml)
+   - Database management UI
+   - Login credentials: Check `docker-compose.yml` environment section
 
 ### Testing Workflow
 
-#### Test In-App Notifications
-1. Open Admin Panel in one browser tab
-2. Open Student Panel in another tab/window
-3. In Student Panel, enter Student ID (e.g., `STU001`) and click "Join"
-4. In Admin Panel, send notification to `STU001`
-5. See the notification appear in real-time on Student Panel
-6. Send acknowledgment from Student Panel
-7. See acknowledgment appear on Admin Panel
+**In-App Notifications**: Open Admin Panel and Student Panel in separate tabs. Student joins with ID (e.g., `STU001`), Admin sends notification, Student receives and acknowledges in real-time.
 
-#### Test Email Notifications
-1. Open Admin Panel
-2. In the "Send Email Notification" section:
-   - Enter recipient email: `test@example.com`
-   - Enter message: `Test email notification`
-   - Click "Send Email"
-3. Check Kafka UI to verify message was sent to `email_notifications` topic
-4. Check application logs to see consumer processing
+**Email Notifications**: Send email from Admin Panel, verify in Kafka UI and application logs.
 
 ---
 
 ## 🔌 API Endpoints
 
-### In-App Notifications
+**In-App**: 
+- `POST /api/inapp/send?studentId={id}&message={msg}` - Send notification
+- `GET /api/inapp/{studentId}` - Get notifications
 
-#### Send Notification to Student
-```http
-POST /api/inapp/send?studentId={studentId}&message={message}
-```
+**Email**: 
+- `POST /notify/email?email={email}&message={msg}` - Send email
 
-**Example**:
-```bash
-curl -X POST "http://localhost:8081/api/inapp/send?studentId=STU001&message=Your%20assignment%20is%20ready"
-```
-
-**Response**: `Notification published to Kafka`
-
-#### Get Notifications for Student
-```http
-GET /api/inapp/{studentId}
-```
-
-**Example**:
-```bash
-curl "http://localhost:8081/api/inapp/STU001"
-```
-
-**Response**:
-```json
-[
-  {
-    "id": 1,
-    "studentId": "STU001",
-    "message": "Your assignment is ready",
-    "status": "DELIVERED",
-    "createdAt": "2026-01-15T10:30:00",
-    "updatedAt": "2026-01-15T10:30:00"
-  }
-]
-```
-
-### Email Notifications
-
-#### Send Email Notification
-```http
-POST /notify/email?email={email}&message={message}
-```
-
-**Example**:
-```bash
-curl -X POST "http://localhost:8081/notify/email?email=student@example.com&message=Important%20Update"
-```
-
-**Response**: `Email notification sent to student@example.com`
-
-### WebSocket Endpoints
-
-#### Connect to WebSocket
-```javascript
-const socket = new SockJS('http://localhost:8081/ws');
-const stompClient = Stomp.over(socket);
-```
-
-#### Topics
-- `/topic/student/{studentId}` - Receive notifications for specific student
-- `/topic/admin/acks` - Receive acknowledgments (admin)
-- `/app/ack` - Send acknowledgment (student)
+**WebSocket**: 
+- Connect: `new SockJS('http://localhost:8081/ws')`
+- Topics: `/topic/student/{studentId}`, `/topic/admin/acks`, `/app/ack`
 
 ---
 
@@ -469,27 +372,9 @@ const stompClient = Stomp.over(socket);
 
 ## 🔧 pgAdmin Setup
 
-### Connect to PostgreSQL Database
-
-1. **Open pgAdmin**: http://localhost:5050
-2. **Login**: Use credentials configured in `docker-compose.yml`
-
-3. **Add Server**:
-   - Right-click **Servers** → **Register** → **Server**
-   
-4. **General Tab**:
-   - Name: `ApacheKafka PostgreSQL` (or any name)
-
-5. **Connection Tab**:
-   - Host name/address: `postgres` (Docker) or `localhost` (host machine)
-   - Port: `5432`
-   - Maintenance database: `postgres`
-   - Username/Password: Check `docker-compose.yml`
-
-6. **Click Save**
-
-7. **Navigate to Database**:
-   - Expand server → Databases → `appdb` → Schemas → public → Tables
+1. Access http://localhost:5050 and login (credentials in `docker-compose.yml`)
+2. Register new server: Host = `postgres` (or `localhost`), Port = `5432`
+3. Navigate: Databases → `appdb` → Schemas → public → Tables
 
 ---
 
@@ -556,95 +441,21 @@ These limitations don't affect the core async design but should be considered fo
 
 ## 🚀 Future Enhancements
 
-Planned improvements to make this system production-ready:
-
-### Short Term
-- [ ] Kafka Dead Letter Queue (DLQ) for retry topics
-- [ ] Spring Security with JWT authentication
-- [ ] API rate limiting per user/IP
-- [ ] Notification templates with variable substitution
-- [ ] User roles and permissions (Admin, Student, Instructor)
-
-### Medium Term
-- [ ] Push notifications via Firebase Cloud Messaging (FCM)
-- [ ] SMS notifications via Twilio
-- [ ] Slack/Teams integration
-- [ ] Email HTML templates with styling
-- [ ] Notification preferences (users opt-in/out)
-
-### Long Term
-- [ ] Analytics dashboard (delivery rates, response times)
-- [ ] Metrics collection (Prometheus)
-- [ ] Monitoring and alerting (Grafana)
-- [ ] Load testing and performance tuning
-- [ ] Distributed tracing (Jaeger/Zipkin)
-- [ ] Multi-tenant support
-- [ ] Notification scheduling (send at specific time)
+- **Spring Security with JWT** - Add authentication and authorization
+- **Push Notifications (FCM)** - Mobile push notification support
+- **Monitoring Dashboard** - Prometheus + Grafana for metrics and alerts  
+- **Notification Templates** - HTML email templates with variable substitution
+- **Rate Limiting** - Prevent API abuse with per-user/IP throttling
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Application Won't Start
-
-**Issue**: Timezone error `FATAL: invalid value for parameter "TimeZone": "Asia/Calcutta"`
-
-**Solution**: Already fixed with `DatabaseConfig.java` that sets timezone to UTC. If issue persists:
-```bash
-# Restart PostgreSQL container
-docker restart postgres_container
-```
-
-### Kafka Connection Failed
-
-**Solution**:
-```bash
-# Check Kafka is running
-docker logs kafka
-
-# Restart Kafka
-docker-compose restart kafka
-```
-
-### Database Connection Failed
-
-**Solution**:
-```bash
-# Check PostgreSQL logs
-docker logs postgres_container
-
-# Verify credentials in docker-compose.yml
-# Database credentials configured in environment section
-```
-
-### Port Already in Use
-
-**Solution**:
-```bash
-# Stop conflicting services or change ports in docker-compose.yml
-# Find process using port (Windows)
-netstat -ano | findstr :8081
-
-# Kill process
-taskkill /PID <process_id> /F
-```
-
-### Docker Containers Not Starting
-
-**Solution**:
-```bash
-# Clean up and restart
-docker-compose down
-docker system prune -f
-docker-compose up -d
-```
-
-### WebSocket Connection Failed
-
-**Solution**:
-- Ensure application is running on port 8081
-- Check browser console for errors
-- Verify CORS settings if accessing from different domain
+**Containers**: `docker-compose down && docker-compose up -d`  
+**Kafka**: `docker logs kafka` or `docker-compose restart kafka`  
+**Database**: `docker logs postgres_container`  
+**Port in use**: `netstat -ano | findstr :8081` then `taskkill /PID <id> /F`  
+**WebSocket**: Ensure app runs on port 8081, check browser console
 
 ---
 
@@ -696,89 +507,3 @@ ApacheKafka/
 └── mvnw / mvnw.cmd
 ```
 
----
-
-## 📝 Configuration Files
-
-### .env (Environment Variables)
-Create a `.env` file in the project root with:
-```properties
-# Database credentials
-DB_USER=kesav
-DB_PASSWORD=kesav
-DB_NAME=appdb
-DB_PORT=5432
-
-# pgAdmin credentials
-PGADMIN_EMAIL=pgadmin4@pgadmin.org
-PGADMIN_PASSWORD=admin
-PGADMIN_PORT=5050
-
-# Email settings (optional)
-SPRING_MAIL_USERNAME=your-email@gmail.com
-SPRING_MAIL_PASSWORD=your-app-password
-SPRING_MAIL_HOST=smtp.gmail.com
-SPRING_MAIL_PORT=587
-```
-
-**Tip**: Use `.env.example` as a template - copy and customize for your environment.
-
-### application.properties
-Key configurations:
-- Server port: `8081`
-- Kafka bootstrap servers: `localhost:9092`
-- Database URL: Derived from .env variables
-- Mail settings: Derived from .env variables
-
-### docker-compose.yml
-Services configured with environment variables from `.env`:
-- ZooKeeper
-- Kafka
-- PostgreSQL (with DB credentials from .env)
-- pgAdmin (with credentials from .env)
-- Kafka UI
-
----
-
-## 🔐 Security Configuration
-
-| Component | Configuration Method | Location |
-|-----------|----------------------|----------|
-| PostgreSQL | Environment Variables | `.env` file |
-| pgAdmin | Environment Variables | `.env` file |
-| Email SMTP | Environment Variables | `.env` file |
-| Application | application.properties | `src/main/resources/` |
-
-### Environment Variable Security
-
-1. **Create `.env` from template**:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. **Update `.env` with your values** (never commit to git):
-   ```bash
-   # Add to .gitignore
-   echo ".env" >> .gitignore
-   ```
-
-3. **Use `.env.example` for documentation**:
-   - Keep `.env.example` in git
-   - Shows required variables without sensitive values
-   - Developers copy and customize locally
-
-**Note**: For production deployments, use proper secrets management systems (AWS Secrets Manager, Kubernetes Secrets, Vault, etc.)
-
----
-
-## 📞 Support
-
-For issues or questions:
-1. Check the [Troubleshooting](#troubleshooting) section
-2. Review [TESTING_GUIDE.md](TESTING_GUIDE.md)
-3. Check application logs
-4. Verify Docker containers are running
-
----
-
-**Happy Coding! 🚀**
