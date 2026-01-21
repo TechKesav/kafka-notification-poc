@@ -506,4 +506,15 @@ ApacheKafka/
 ├── TESTING_GUIDE.md
 └── mvnw / mvnw.cmd
 ```
+## Screenshots
+
+### Admin Page
+![Admin](screenshots/Admin_notification.png)
+
+### Student Page
+![Student](screenshots/Student_notification.png)
+
+### Kafka Dashboard
+![Dashboard](screenshots/Kafka_dashboard.png)
+
 
